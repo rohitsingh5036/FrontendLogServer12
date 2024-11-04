@@ -3,7 +3,9 @@ import { Container, Grid, SimpleGrid, rem, Text, Card, Group, Modal } from '@man
 import { IconPlus } from '@tabler/icons-react';
 import { Line } from 'react-chartjs-2';
 import { Chart, CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import ApplicationsTable from '@/components/Applications/ApplicationsTable';
 
 const PRIMARY_COL_HEIGHT = rem(300);
 
@@ -15,12 +17,13 @@ export interface DashboardContentProps {
 }
 
 export function DashboardContent({ initialUsername, lastLoginTime }: DashboardContentProps) {
-    const [username, setUsername] = useState<string>(initialUsername || ''); // Initialize with the passed username
+    const [username, setUsername] = useState<string>(initialUsername || '');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [applications, setApplications] = useState<any[]>([]);
-    const [logData, setLogData] = useState({ appName: "", url: "", type: "Client" });
+    const [logData, setLogData] = useState({ appName: "", url: "", type: "Client", token: "" });
     const [urlError, setUrlError] = useState("");
-    const navigate = useNavigate()
+    const [errorMessage, setErrorMessage] = useState('');
+    const navigate = useNavigate();
     const SECONDARY_COL_HEIGHT = `calc(${PRIMARY_COL_HEIGHT} / 2 - var(--mantine-spacing-md) / 2)`;
 
     const visitsChartData = {
@@ -37,15 +40,10 @@ export function DashboardContent({ initialUsername, lastLoginTime }: DashboardCo
         ],
     };
 
-    useEffect(() => {
-        // Optionally, handle applications if needed
-        const savedApplications = JSON.parse(localStorage.getItem('applications') || '[]');
-        setApplications(savedApplications);
-    }, []);
-
     const handleOpenModal = () => {
         setIsModalOpen(true);
         setUrlError("");
+        setErrorMessage("");  // Reset error message when opening modal
     };
 
     const handleCloseModal = () => {
@@ -57,35 +55,26 @@ export function DashboardContent({ initialUsername, lastLoginTime }: DashboardCo
         setLogData({ ...logData, [name]: value });
     }
 
-    function validateUrl(url: string) {
-        const urlPattern = new RegExp(/^(ftp|http|https):\/\/[^ "]+$/);
-        return urlPattern.test(url);
-    }
-
-    function handleSubmit(e: any) {
+    async function handleSubmit(e: any) {
         e.preventDefault();
-        const { appName, url, type } = logData;
-    
-        if (!validateUrl(url)) {
-            setUrlError("Please enter a valid URL.");
-            return;
+        const { appName, url, type, token } = logData;
+
+        try {
+            const response = await axios.post("http://localhost:3000/project/post", { 
+                project_name: appName, 
+                project_description: url, 
+                script_type: type,
+                token : token
+            });
+            navigate('/applications');
+        } catch (error) {
+            console.log("error in creating application", error);
+            setErrorMessage("Error in creating application. Please login again.");
         }
-    
-        const newApplication = { appName, url, type };
-        const updatedApplications = [...applications, newApplication];
-        localStorage.setItem('applications', JSON.stringify(updatedApplications));
-        setApplications(updatedApplications);
-        setLogData({ appName: "", url: "", type: "Client" });
-        handleCloseModal();
-    
-        // Navigate to applications page after creation
-        navigate('/applications');
     }
-    
 
     return (
-        <Container my="md" style={{backgroundColor:'#191430'
-        }}>
+        <Container my="md" style={{ backgroundColor: '#191430' }}>
             <SimpleGrid cols={{ base: 1, sm: 2 }} style={{ padding: '2rem' }} spacing="md">
                 <Card shadow="sm" padding="lg" radius="md" style={{ height: '35rem' }}>
                     <Text size="xl" style={{ marginBottom: '1rem' }}>
@@ -193,17 +182,38 @@ export function DashboardContent({ initialUsername, lastLoginTime }: DashboardCo
                                         </select>
                                     </div>
                                 </div>
+                                <div>
+                                    <label htmlFor="token" className="text-base font-medium">
+                                        Token
+                                    </label>
+                                    <div className="mt-2">
+                                        <input
+                                            className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
+                                            type="text"
+                                            placeholder="Token"
+                                            id="token"
+                                            value={logData.token}
+                                            onChange={handleChange}
+                                            name="token"
+                                        />
+                                    </div>
+                                </div>
 
                                 <div>
                                     <button
                                         type="submit"
                                         className="inline-flex w-full items-center justify-center rounded-md px-3.5 py-2.5 font-semibold leading-7 text-white"
                                         style={{ backgroundColor: '#191430' }}
-                                        
                                     >
                                         Create Application
                                     </button>
                                 </div>
+
+                                {errorMessage && (
+                                    <Text color="red" size="sm" mt="sm">
+                                        {errorMessage}
+                                    </Text>
+                                )}
                             </div>
                         </form>
                     </div>

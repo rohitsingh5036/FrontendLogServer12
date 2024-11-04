@@ -1,63 +1,50 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './ApplicationsTable.module.css';
 
 export function ApplicationsTable() {
   const [applications, setApplications] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState(''); // State for search term
-  const [filterType, setFilterType] = useState('All'); // State for filter type
-  const [sortField, setSortField] = useState('appName'); // State for sorting field
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc'); // State for sort order
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('All');
+  const [sortField, setSortField] = useState('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load applications from localStorage
-    const savedApplications = JSON.parse(localStorage.getItem('applications') || '[]');
-    
-    // Add creation date if not available
-    const applicationsWithDate = savedApplications.map((app: any) => ({
-      ...app,
-      createdAt: app.createdAt || new Date().toISOString(),
-    }));
-    
-    setApplications(applicationsWithDate);
+    const fetchApplications = async () => {
+      try {
+        const response = await axios.get("http://localhost:3000/project/allprojects");
+        setApplications(response.data);
+      } catch (error) {
+        console.error("Error fetching applications data:", error);
+      }
+    };
+    fetchApplications();
   }, []);
 
-  // Delete function to remove an application
-  const handleDelete = (name: string) => {
-    const updatedApplications = applications.filter((app) => app.appName !== name);
-    setApplications(updatedApplications);
-    localStorage.setItem('applications', JSON.stringify(updatedApplications));
-  };
-
-  // View function to navigate to a new page for selected app
   const handleView = (app: any) => {
-    
-    navigate(`/applications/${app.appName}`, { state: { app } });
+    navigate(`/applications/${app.project_name}`, { state: { app } });
   };
 
-  // Handle sorting by a specific field (either 'appName' or 'createdAt')
   const handleSort = (field: string) => {
     const order = sortField === field && sortOrder === 'asc' ? 'desc' : 'asc';
     setSortField(field);
     setSortOrder(order);
   };
 
-  // Filter and sort applications based on search, filter, and sorting
   const filteredApplications = applications
     .filter((app) => {
-      const appName = app.appName || ''; // Ensure that app.appName is defined
+      const appName = app.project_name || ''; // Fallback to empty string if name is undefined
       const matchesSearch = appName.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType = filterType === 'All' || app.type === filterType;
+      const matchesType = filterType === 'All' || app.script_type === filterType;
       return matchesSearch && matchesType;
     })
     .sort((a, b) => {
-      if (sortField === 'appName') {
-        const nameA = a.appName.toLowerCase();
-        const nameB = b.appName.toLowerCase();
-        if (nameA < nameB) return sortOrder === 'asc' ? -1 : 1;
-        if (nameA > nameB) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
+      if (sortField === 'name') {
+        const nameA = a.name ? a.name.toLowerCase() : ''; // Check for undefined
+        const nameB = b.name ? b.name.toLowerCase() : ''; // Check for undefined
+        return sortOrder === 'asc' ? (nameA < nameB ? -1 : 1) : (nameA > nameB ? -1 : 1);
       } else if (sortField === 'createdAt') {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
@@ -72,7 +59,6 @@ export function ApplicationsTable() {
         <section className="h-screen p-3 sm:p-5" style={{ backgroundImage: `url('https://bnbhomestay.in/assets/top_backgroud.avif')` }}>
           <div className="mx-auto max-w-screen- px-4 lg:px-12">
             <div className="bg-white h-fit dark:bg-gray-800 relative shadow-md sm:rounded-lg overflow-hidden">
-              {/* Search Input */}
               <div className="mt-4 p-4 h-9">
                 <input
                   type="text"
@@ -83,7 +69,6 @@ export function ApplicationsTable() {
                 />
               </div>
 
-              {/* Filter Dropdown */}
               <div className="mt-4 p-4">
                 <select
                   value={filterType}
@@ -95,14 +80,13 @@ export function ApplicationsTable() {
                   <option value="Server">Server</option>
                 </select>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                     <tr>
-                      {/* Sortable columns */}
-                      <th scope="col" className="px-4 py-3 cursor-pointer" onClick={() => handleSort('appName')}>
-                        Application Name {sortField === 'appName' && (sortOrder === 'asc' ? '↑' : '↓')}
+                      <th scope="col" className="px-4 py-3 cursor-pointer" onClick={() => handleSort('name')}>
+                        Application Name {sortField === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                       </th>
                       <th scope="col" className="px-4 py-3">URL</th>
                       <th scope="col" className="px-4 py-3">Type</th>
@@ -117,11 +101,11 @@ export function ApplicationsTable() {
                       filteredApplications.map((app, index) => (
                         <tr key={index} className="border-b dark:border-gray-700">
                           <th scope="row" className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap dark:text-white">
-                            {app.appName}
+                            {app.project_name || 'N/A'}
                           </th>
-                          <td className="px-4 py-3">{app.url}</td>
-                          <td className="px-4 py-3">{app.type}</td>
-                          <td className="px-4 py-3">{new Date(app.createdAt).toLocaleDateString()}</td>
+                          <td className="px-4 py-3">{app.project_description || 'N/A'}</td>
+                          <td className="px-4 py-3">{app.script_type || 'N/A'}</td>
+                          <td className="px-4 py-3">{app.createdAt ? new Date(app.createdAt).toLocaleDateString() : 'N/A'}</td>
                           <td className="px-4 py-3 flex items-center justify-start space-x-4">
                             <button
                               onClick={() => handleView(app)}
@@ -130,7 +114,6 @@ export function ApplicationsTable() {
                               View
                             </button>
                             <button
-                              onClick={() => handleDelete(app.appName)}
                               className="inline-flex items-center px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600"
                             >
                               Delete
